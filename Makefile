@@ -1,6 +1,6 @@
 DEBUG:= -D DEBUG
 
-TARGET    = livai_tts
+TARGET    = waveglow_tts
 SRC_DIR   = waveglow/src
 SRC_DIR_SYS   = sys/src
 SRC_DIR_COMMON   = common/src

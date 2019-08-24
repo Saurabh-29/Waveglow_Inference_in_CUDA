@@ -3,7 +3,7 @@
 
 
 #include<WN.hpp>
-
+#include<upsample.hpp>
 #include<logger.hpp>
 
 #include<conv.hpp>
@@ -17,15 +17,47 @@
 using namespace livai::tts;
 using namespace livai::tts::common;
 
+void testupsampler(cudnnHandle_t& cudnn)
+	{
+		using namespace livai::tts::waveglow;
+		using namespace std;
+		using namespace livai::tts::common ;
+
+		upsample upsample;
+
+		std::cout<<"test upsample code is running"<<"\n";
+		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_spect.npy");
+
+		gpu_float_array input_mel;
+
+		input_mel.init(input_m.shape);
+
+		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
+		upsample.set(cudnn, input_mel.shape[2]);
+
+		auto start = chrono::steady_clock::now();
+
+		upsample(cudnn, input_mel);
+		
+		cudaDeviceSynchronize();
+		auto end = chrono::steady_clock::now();
+
+		// log_d("Gen_out audio in wavegen", final_out.log("gen_out.npy"));
+
+		std::cout << "Elapsed time in milliseconds : " 
+			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
+			<< " ms" << std::endl;
+		}
+
 void testWN(cudnnHandle_t& cudnn)
 	{
-		using namespace livai::tts::clarinet;
+		using namespace livai::tts::waveglow;
 		using namespace std;
 		using namespace livai::tts::common ;
 
 		WN wavenet;
 
-		std::cout<<"test wavenet code is running"<<"\n";
+		std::cout<<"test waveglow code is running"<<"\n";
 		// auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_audio.npy");
 		auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/audio_11.npy");
 		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_spect.npy");
@@ -73,9 +105,8 @@ int main()
 	cudnnHandle_t cudnn;
 	(cudaSetDevice(1));
 	checkCUDNN(cudnnCreate(&cudnn));
-
-	std::cout<<"test makefile compile time"<<"\n";
-	testWN(cudnn);
+	testupsampler(cudnn);
+	// testWN(cudnn);
 	cudnnDestroy(cudnn);
 }
 
