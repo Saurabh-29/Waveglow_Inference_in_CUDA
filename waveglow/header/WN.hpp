@@ -13,7 +13,7 @@ namespace livai
 {
 	namespace tts
 	{
-		namespace clarinet
+		namespace waveglow
 		{
 			class WN
 			{

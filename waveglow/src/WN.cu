@@ -8,7 +8,7 @@
 #include<logger.hpp>
 #include<utils.hpp>
 
-using namespace livai::tts::clarinet;
+using namespace livai::tts::waveglow;
 using namespace livai::tts::common;
 
 __forceinline__ __device__ float sigmoidf(float in) {
