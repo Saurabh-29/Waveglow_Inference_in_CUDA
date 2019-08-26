@@ -210,7 +210,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t k, size_t audio_len)
 }
 
 
-void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_array& mel_input,gpu_float_array& z4, gpu_float_array& z8)
+void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_array& mel_input,gpu_float_array& z4, 
+                gpu_float_array& z8, gpu_float_array& d_output)
 {   
 
     size_t input_len = input_t.shape[2], mul=input_t.shape[1];
@@ -287,47 +288,50 @@ void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_a
 
         }
 
-                cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 256, 1, input_len);
-                cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
-                end_conv[k](cudnn, f6, temp, input_desc, out_desc, d_workspace);
-                // log_d(" end conv outputs ", temp.log("end_out.npy"));
+        cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 256, 1, input_len);
+        cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
+        end_conv[k](cudnn, f6, temp, input_desc, out_desc, d_workspace);
+        // log_d(" end conv outputs ", temp.log("end_out.npy"));
 
-                log_exp_audio <<< (temp.size()/2+511)/512, 512 >>>(temp.size()/2, input_t.ptr, temp.ptr, temp.size()/2);
-                // log_d("audio transformed", input_t.log("audio_tr.npy"));
+        log_exp_audio <<< (temp.size()/2+511)/512, 512 >>>(temp.size()/2, input_t.ptr, temp.ptr, temp.size()/2);
+        // log_d("audio transformed", input_t.log("audio_tr.npy"));
 
-                cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
-                cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
-                inv_conv[k](cudnn, input_t, temp, input_desc, out_desc, d_workspace, 0);
+        cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
+        cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mul, 1, input_len);
+        inv_conv[k](cudnn, input_t, temp, input_desc, out_desc, d_workspace, 0);
 
-                copy_audio<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr);
-                log_d("audio transformed inv", input_t.log("audio_inv" + std::to_string(k)+ ".npy"));
+        copy_audio<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr);
+        log_d("audio transformed inv", input_t.log("audio_inv" + std::to_string(k)+ ".npy"));
 
 
-                if(k==8)
-                {
-                    input_t.reshape(1,6, input_len);
+        if(k==8)
+            {
+                input_t.reshape(1,6, input_len);
 
-                    concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z8.ptr, 2*input_len);
-                    // log_d("vaue of z", z8.log("z8.npy"));
+                concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z8.ptr, 2*input_len);
+                // log_d("vaue of z", z8.log("z8.npy"));
 
-                    temp_input.reshape(3, input_len);
-                    temp.init(6, input_len);
-                    mul=6;
-                }
-                if(k==4)
-                {
-                    input_t.reshape(1,8, input_len);
-                    
-                    concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z4.ptr, 2*input_len);
-                    // log_d("vaue of z", z4.log("z4.npy"));
+                temp_input.reshape(3, input_len);
+                temp.init(6, input_len);
+                mul=6;
+            }
+        if(k==4)
+            {
+                input_t.reshape(1,8, input_len);
+                
+                concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z4.ptr, 2*input_len);
+                // log_d("vaue of z", z4.log("z4.npy"));
 
-                    temp_input.reshape(4, input_len);
-                    temp.init(8, input_len);
-                    mul=8;
-                }
-                log_d("audio transformed inv", input_t.log("audio_after_step" + std::to_string(k)+ ".npy"));
+                temp_input.reshape(4, input_len);
+                temp.init(8, input_len);
+                mul=8;
+            }
+        log_d("audio transformed inv", input_t.log("audio_after_step" + std::to_string(k)+ ".npy"));
 
     }
+
+    // copy_audio<<<(d_output.size()+511)/512, 512>>>(d_output.size(), input_t.ptr, d_output.ptr);
+    //add a transpose kernel to get audio
 
 
 }
@@ -337,12 +341,3 @@ WN::~WN()
 {
 
 }
-//things maybe considered in future
-
-    // cudaStream_t s1, s2, s3, s4;
-    // cudaStreamCreate(&s1);
-    // cudaStreamCreate(&s2);
-    // cudaStreamCreate(&s3);
-    // cudaStreamCreate(&s4);
-
-    // cudnnSetStream(cudnn, s1);

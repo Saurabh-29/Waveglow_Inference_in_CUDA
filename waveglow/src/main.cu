@@ -26,23 +26,24 @@ void testupsampler(cudnnHandle_t& cudnn)
 		upsample upsample;
 
 		std::cout<<"test upsample code is running"<<"\n";
-		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_spect.npy");
+		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
 
-		gpu_float_array input_mel;
+		gpu_float_array input_mel, upsampled_mel;
 
 		input_mel.init(input_m.shape);
+		upsampled_mel.init(640, input_m.shape[2]*32);
 
 		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 		upsample.set(cudnn, input_mel.shape[2]);
 
 		auto start = chrono::steady_clock::now();
 
-		upsample(cudnn, input_mel);
+		upsample(cudnn, input_mel, upsampled_mel);
 		
 		cudaDeviceSynchronize();
 		auto end = chrono::steady_clock::now();
 
-		// log_d("Gen_out audio in wavegen", final_out.log("gen_out.npy"));
+		log_d("final mel", upsampled_mel.log("gen_upsamplee_mel.npy"));
 
 		std::cout << "Elapsed time in milliseconds : " 
 			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
@@ -56,19 +57,21 @@ void testWN(cudnnHandle_t& cudnn)
 		using namespace livai::tts::common ;
 
 		WN wavenet;
+		upsample upsample;
 
 		std::cout<<"test waveglow code is running"<<"\n";
 		// auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_audio.npy");
 		auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/audio_11.npy");
-		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_spect.npy");
+		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
 
 		auto z_4 = cnpy::npy_load("/shared1/saurabh.m/waveglow/z_4.npy");
 		auto z_8 = cnpy::npy_load("/shared1/saurabh.m/waveglow/z_8.npy");
 
-		gpu_float_array input_tensor, input_mel, final_out, d_workspace, z4, z8;
+		gpu_float_array input_tensor, input_mel, audio, d_workspace, z4, z8, upsampled_mel;
 
 		input_tensor.init(1, 8, input_t.shape[2]);
 		input_mel.init(input_m.shape);
+		audio.init(input_m.shape[2]*256,1);
 		z4.init(z_4.shape);
 		z8.init(z_8.shape);
 		input_tensor.reshape(1,4,input_t.shape[2]);
@@ -79,19 +82,21 @@ void testWN(cudnnHandle_t& cudnn)
 		cudaMemcpy(z8.ptr, z_8.data<float_t>(), z8.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 
 
-		// final_out.init(1,totalNum*256);
+		upsampled_mel.init(640, input_m.shape[2]*32);
 
 		wavenet.set(cudnn, 11, input_tensor.shape[2]);
+		upsample.set(cudnn, input_mel.shape[2]);
+
 		d_workspace.init(2170112/2,1);
 
 		auto start = chrono::steady_clock::now();
-
-		wavenet(cudnn, input_tensor, input_mel, z4, z8);
+		upsample(cudnn, input_mel, upsampled_mel);
+		wavenet(cudnn, input_tensor, upsampled_mel, z4, z8, audio);
 		
 		cudaDeviceSynchronize();
 		auto end = chrono::steady_clock::now();
 
-		// log_d("Gen_out audio in wavegen", final_out.log("gen_out.npy"));
+		log_d("Gen_out audio in waveglow", audio.log("gen_out.npy"));
 
 		std::cout << "Elapsed time in milliseconds : " 
 			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
@@ -105,8 +110,8 @@ int main()
 	cudnnHandle_t cudnn;
 	(cudaSetDevice(1));
 	checkCUDNN(cudnnCreate(&cudnn));
-	testupsampler(cudnn);
-	// testWN(cudnn);
+	// testupsampler(cudnn);
+	testWN(cudnn);
 	cudnnDestroy(cudnn);
 }
 
