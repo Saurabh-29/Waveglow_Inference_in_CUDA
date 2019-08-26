@@ -25,6 +25,27 @@ __global__ void fractional_stride_nchw(size_t num_values, size_t stride, float_t
     }
 }
 
+__global__ void reshape(size_t num_values, float_t* src, float_t* dest, size_t ld_src, size_t ld_dest)
+{
+    size_t index = blockIdx.x*blockDim.x + threadIdx.x;
+    if(index < num_values)
+    {
+        size_t src_index = (index/ld_dest)*ld_src+ index%ld_dest;
+        dest[index] = src[src_index];
+    }
+}
+
+__global__ void transformation(size_t num_values, float_t* src, float_t* dest, size_t ld_src, size_t ld_dest)
+{
+    size_t index = blockIdx.x*blockDim.x + threadIdx.x;
+
+    if(index < num_values)
+    {
+        size_t dest_index = (index/ld_src)*ld_src + ((index%ld_src)%8)*ld_dest+ (index%ld_src)/8;
+        dest[dest_index] = src[index];
+    }
+}
+
 void upsample::set(cudnnHandle_t& cudnn, size_t audio_len)
 {
     size_t total_input_size = audio_len;
@@ -56,7 +77,7 @@ void upsample::set(cudnnHandle_t& cudnn, size_t audio_len)
 }
 
 
-void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel)
+void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel,  gpu_float_array& d_output)
 {   
 
     size_t input_len = input_mel.shape[2];
@@ -82,7 +103,18 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel)
     fractional_stride_nchw<<<(num_values+1023)/1024, 1024>>>(num_values, 256, input_mel.ptr, f1.ptr, input_len, input_rows);
 
     up_conv(cudnn, f1, f2, input_desc, out_desc, d_workspace);
-    log_d("added upsampling", f2.log("upsampled_mel.npy"));
+    // log_d("added upsampling", f2.log("upsampled_mel.npy"));
+
+    size_t upsampled_dim = input_len*256;
+    f1.reshape(80, upsampled_dim);
+    num_values = f1.size();
+    reshape<<<(num_values+1023)/1024, 1024>>>(num_values, f2.ptr, f1.ptr, output_rows, upsampled_dim);
+
+    // log_d("reShaped", f1.log("reshaped_mel.npy"));
+
+    f2.reshape(640, upsampled_dim/8);
+    transformation<<<(num_values+1023)/1024, 1024>>>(num_values, f1.ptr, d_output.ptr, upsampled_dim, upsampled_dim/8);
+    log_d("transformation", d_output.log("transformed_mel.npy"));
 
 }
 

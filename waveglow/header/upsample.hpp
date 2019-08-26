@@ -27,7 +27,7 @@ namespace livai
 			public:
 				noCopy(upsample);
 				upsample(){}
-				void operator () (cudnnHandle_t& cudnn, gpu_float_array& input_t);
+				void operator () (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_array& d_output);
 			 	void set(cudnnHandle_t& cudnn,  size_t totalNum);
 				~upsample(); 
 			};
