@@ -84,7 +84,7 @@ void testWN(cudnnHandle_t& cudnn)
 
 		upsampled_mel.init(640, input_m.shape[2]*32);
 
-		wavenet.set(cudnn, 11, input_tensor.shape[2]);
+		wavenet.set(cudnn, input_tensor.shape[2]);
 		upsample.set(cudnn, input_mel.shape[2]);
 
 		d_workspace.init(2170112/2,1);
