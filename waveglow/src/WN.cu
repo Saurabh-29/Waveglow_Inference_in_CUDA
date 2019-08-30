@@ -215,7 +215,6 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
         temp.init(n_groups, input_len);
         z.init(2, 2*input_len);
         input_t.init(n_groups,input_len);
-        d_workspace.init(1000000,1);
     }
 
     {
@@ -226,7 +225,7 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 }
 
 
-void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output)
+void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output, gpu_float_array& d_workspace)
 {   
 
     size_t input_len = mel_input.shape[1], aud_channels=4;

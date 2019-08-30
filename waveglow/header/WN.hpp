@@ -30,14 +30,13 @@ namespace livai
 				
 				size_t input_len, dil_t, num_values, n_threads, num_blocks;
 				size_t n_channels, n_flows, n_layers, n_groups, n_rem_channels;
-				gpu_float_array f1,f2,f3,f4,temp, temp_input, f6, d_workspace, z, input_t;
+				gpu_float_array f1,f2,f3,f4,temp, temp_input, f6, z, input_t;
 
 			public:
 				noCopy(WN);
 				WN(){}
-				void operator () (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output);
+				void operator () (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output, gpu_float_array& d_workspace);
 			 	void set(cudnnHandle_t& cudnn, size_t totalNum);
-			 	// void dynamic_set(cudnnHandle_t& cudnn, size_t totalNum);
 				~WN(); 
 			};
 		}
