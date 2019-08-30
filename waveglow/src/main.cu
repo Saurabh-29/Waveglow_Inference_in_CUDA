@@ -64,34 +64,30 @@ void testWN(cudnnHandle_t& cudnn)
 		auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/audio_11.npy");
 		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
 
-		auto z_4 = cnpy::npy_load("/shared1/saurabh.m/waveglow/z_4.npy");
-		auto z_8 = cnpy::npy_load("/shared1/saurabh.m/waveglow/z_8.npy");
+	
 
 		gpu_float_array input_tensor, input_mel, audio, d_workspace, z4, z8, upsampled_mel;
 
 		input_tensor.init(1, 8, input_t.shape[2]);
 		input_mel.init(input_m.shape);
 		audio.init(input_m.shape[2]*256,1);
-		z4.init(z_4.shape);
-		z8.init(z_8.shape);
+		
 		input_tensor.reshape(1,4,input_t.shape[2]);
 
 		cudaMemcpy(input_tensor.ptr, input_t.data<float_t>(), input_tensor.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(z4.ptr, z_4.data<float_t>(), z4.size()*sizeof(float_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(z8.ptr, z_8.data<float_t>(), z8.size()*sizeof(float_t), cudaMemcpyHostToDevice);
-
+	
 
 		upsampled_mel.init(640, input_m.shape[2]*32);
 
-		wavenet.set(cudnn, input_tensor.shape[2]);
+		wavenet.set(cudnn, 2*input_tensor.shape[2]);
 		upsample.set(cudnn, input_mel.shape[2]);
 
 		d_workspace.init(2170112/2,1);
 
 		auto start = chrono::steady_clock::now();
 		upsample(cudnn, input_mel, upsampled_mel);
-		wavenet(cudnn, input_tensor, upsampled_mel, z4, z8, audio);
+		wavenet(cudnn, upsampled_mel, audio);
 		
 		cudaDeviceSynchronize();
 		auto end = chrono::steady_clock::now();

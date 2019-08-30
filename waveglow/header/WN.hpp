@@ -29,13 +29,12 @@ namespace livai
 				cudnnTensorDescriptor_t input_desc, out_desc;
 				
 				size_t input_len, dil_t, num_values, threads, num_blocks;
-				gpu_float_array f1,f2,f3,f4,temp, temp_input, f6, d_workspace;
+				gpu_float_array f1,f2,f3,f4,temp, temp_input, f6, d_workspace, z, input_t;
 
 			public:
 				noCopy(WN);
 				WN(){}
-				void operator () (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_array& mel_input, 
-								gpu_float_array& z4, gpu_float_array& z8, gpu_float_array& d_output);
+				void operator () (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output);
 			 	void set(cudnnHandle_t& cudnn, size_t totalNum);
 			 	// void dynamic_set(cudnnHandle_t& cudnn, size_t totalNum);
 				~WN(); 

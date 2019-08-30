@@ -94,18 +94,16 @@ __global__ void concat_z(size_t sz, float_t* src, float_t* dest, float_t* z, siz
         }
         else
         {
-            dest[index]=0.6f*z[index];
+            dest[index]=z[index];
         }
     }
 }
 
 
-void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
+void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 {
-    size_t total_input_size = audio_len;
-    input_len = audio_len; 
+    input_len = max_audio_len; 
 
-    
 
     for (int k=0;k<12;k++)
     {   
@@ -118,8 +116,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
         size_t in_channel_size = kernel_weight.shape[1];
         size_t out_channel_size = kernel_weight.shape[0];
 
-        start_conv[k].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-            1, total_input_size, out_channel_size, 1, kernel_width);
+        start_conv[k].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+            1, input_len, out_channel_size, 1, kernel_width);
     }
     
     for (int k=0;k<12;k++)
@@ -137,8 +135,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
                 size_t in_channel_size = kernel_weight.shape[1];
                 size_t out_channel_size = kernel_weight.shape[0];
 
-                in_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-                    1, total_input_size, out_channel_size, 1, kernel_width, 1, dilation);
+                in_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+                    1, input_len, out_channel_size, 1, kernel_width, 1, dilation);
 
                 
                 kernel_fname = get_res_name(hparams::cond_conv_weight, k, i);
@@ -150,8 +148,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
                 in_channel_size = kernel_weight.shape[1];
                 out_channel_size = kernel_weight.shape[0];
 
-                cond_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-                    1, total_input_size, out_channel_size, 1, kernel_width);
+                cond_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+                    1, input_len, out_channel_size, 1, kernel_width);
 
                 kernel_fname = get_res_name(hparams::res_skip_conv_weight, k, i);
                 bias_fname = get_res_name(hparams::res_skip_conv_bias, k, i);   
@@ -162,8 +160,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
                 in_channel_size = kernel_weight.shape[1];
                 out_channel_size = kernel_weight.shape[0];
 
-                res_skip_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-                    1, total_input_size, out_channel_size, 1, kernel_width);
+                res_skip_conv[k][i].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+                    1, input_len, out_channel_size, 1, kernel_width);
 
                 dilation*=2;
 
@@ -181,8 +179,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
         size_t in_channel_size = kernel_weight.shape[1];
         size_t out_channel_size = kernel_weight.shape[0];
 
-        end_conv[k].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-            1, total_input_size, out_channel_size, 1, kernel_width);
+        end_conv[k].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+            1, input_len, out_channel_size, 1, kernel_width);
     
         kernel_fname = get_param_name(hparams::inv_conv_weight, k);
         bias_fname = get_param_name(hparams::end_conv_bias, k); 
@@ -193,8 +191,8 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
         in_channel_size = kernel_weight.shape[1];
         out_channel_size = kernel_weight.shape[0];
 
-        inv_conv[k].init(cudnn, kernel_weight, bias_weight, 1, total_input_size, in_channel_size,
-            1, total_input_size, out_channel_size, 1, kernel_width);
+        inv_conv[k].init(cudnn, kernel_weight, bias_weight, 1, input_len, in_channel_size,
+            1, input_len, out_channel_size, 1, kernel_width);
     }
 
 
@@ -203,12 +201,14 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
 
     std::cout<<"input length is "<<input_len<<"\n";
     temp_input.init(4, input_len);
-    f1.init(256, 2*input_len);
-    f2.init(512, 2*input_len);
-    f3.init(512, 2*input_len);
-    f4.init(256, 2*input_len);
-    f6.init(256, 2*input_len);
-    temp.init(8, 2*input_len);
+    f1.init(256, input_len);
+    f2.init(512, input_len);
+    f3.init(512, input_len);
+    f4.init(256, input_len);
+    f6.init(256, input_len);
+    temp.init(8, input_len);
+    z.init(2, 2*input_len);
+    input_t.init(1,8,input_len);
     d_workspace.init(1000000,1);
 
     {
@@ -219,19 +219,22 @@ void WN::set(cudnnHandle_t& cudnn, size_t audio_len)
 }
 
 
-void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_array& mel_input,gpu_float_array& z4, 
-                gpu_float_array& z8, gpu_float_array& d_output)
+void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output)
 {   
 
-    size_t input_len = input_t.shape[2], n_channels=input_t.shape[1];
-    std::cout<<"the value is"<<input_len<<"\t"<<input_t.shape[2]<<"\n";
+    size_t input_len = mel_input.shape[1], n_channels=4;
+    std::cout<<"the value is"<<input_len<<"\t"<<input_t.shape[2]<<"\t"<<mel_input.shape[1]<<"\n";
+
+    input_t.reshape(1, n_channels, input_len);
+    curandGenerateNormal(rng, input_t.ptr, input_t.size(), 0.0f, 0.6);
+
     f1.reshape(256, input_len);
     f2.reshape(512, input_len);
     f3.reshape(512, input_len);
     f4.reshape(256, input_len);
     f6.reshape(256, input_len);
-    temp_input.reshape(2, input_len);
-    temp.reshape(4, input_len);
+    temp_input.reshape(n_channels/2, input_len);
+    temp.reshape(n_channels, input_len);
 
 
     for(int k=11;k>-1;k--)
@@ -304,32 +307,21 @@ void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_t, gpu_float_a
         inv_conv[k](cudnn, input_t, temp, input_desc, out_desc, d_workspace, 0);
 
         copy_kernel<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr);
-        log_d("audio transformed inv", input_t.log("audio_inv" + std::to_string(k)+ ".npy"));
 
 
-        // if()
         if((k%4==0) && (k>0))
             {
                 n_channels +=2;
 
                 input_t.reshape(1, n_channels, input_len);
-                // curandGenerateNormal(rng, z8.ptr, z8.size(), 0.0f, 1.0);
-                concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z4.ptr, 2*input_len);
+                z.reshape(2, input_len);
+                curandGenerateNormal(rng, z.ptr, z.size(), 0.0f, 0.6);
+                concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z.ptr, 2*input_len);
                 // log_d("vaue of z", z8.log("z8.npy"));
                 temp_input.reshape(n_channels/2, input_len);
                 temp.reshape(n_channels, input_len);
             }
-        // if(k==4)
-        //     {
-        //         n_channels = 8;
-
-        //         input_t.reshape(1,n_channels, input_len);
-                
-        //         concat_z<<<(input_t.size()+511)/512, 512>>>(input_t.size(), temp.ptr, input_t.ptr, z4.ptr, 2*input_len);
-        //         // log_d("vaue of z", z4.log("z4.npy"));
-        //         temp_input.reshape(n_channels/2, input_len);
-        //         temp.reshape(n_channels, input_len);
-        //     }
+     
         log_d("audio transformed inv", input_t.log("audio_after_step" + std::to_string(k)+ ".npy"));
 
     }
