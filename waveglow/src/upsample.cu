@@ -49,8 +49,8 @@ __global__ void transformation(size_t num_values, float_t* src, float_t* dest, s
 void upsample::set(cudnnHandle_t& cudnn, size_t audio_len)
 {
     size_t input_len = audio_len; 
-    mel_dim = 80;
-    stride = 256; 
+    mel_dim = hparams::mel_dim;
+    stride = hparams::stride; 
     n_threads = 1024;
 
     std::string kernel_fname = hparams::up_conv_weight;
@@ -82,7 +82,7 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel,  gp
 {   
 
     size_t input_len = input_mel.shape[2];
-    std::cout<<"the value is"<<input_len<<"\t"<<input_mel.size()<<"\n";
+    // std::cout<<"the value is"<<input_len<<"\t"<<input_mel.size()<<"\n";
 
     size_t input_rows = input_len+(input_len-1)*(stride-1);
     size_t output_rows = input_len*stride+kernel_len-stride;
@@ -115,7 +115,7 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel,  gp
 
     f2.reshape(640, upsampled_dim/8);
     transformation<<<(num_values+n_threads-1)/n_threads, n_threads>>>(num_values, f1.ptr, d_output.ptr, upsampled_dim, upsampled_dim/8);
-    log_d("transformation", d_output.log("transformed_mel.npy"));
+    // log_d("transformation", d_output.log("transformed_mel.npy"));
 
 }
 

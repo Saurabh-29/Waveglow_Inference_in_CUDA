@@ -129,10 +129,9 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
                                                                &workspace_bytes));
 
             size_t workspace_size = (workspace_bytes / sizeof(float_t)) + 1;
-            // d_workspace.init(workspace_size);
             d_workspace_1.reshape(workspace_size);
 
-            log_d("Workspace size",workspace_bytes);
+            // log_d("Workspace size",workspace_bytes);
 
             checkCUDNN(cudnnConvolutionForward(cudnn,
                                                &alpha,
@@ -149,15 +148,6 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
                                                d_output.ptr));
 
 
-            // log_d("filter_gate_c out in conv", d_output.log("filter_gate_c_in_conv.npy"));
-
-            // checkCUDNN(cudnnAddTensor(cudnn, &alpha, bias_descriptor,
-            //                                   d_bias.ptr, &alpha, output_desc, d_output.ptr));
-
-            // log_d("bias in conv", d_bias.log("bias_in_conv.npy"));
-            // log_d("kernel in conv", d_kernel.log("kernel_in_conv.npy"));
-
-            // std::cout<<d_output.size()<<"\t"<<d_bias.size()<<"\n";
             if(has_bias>0)
             {
                 // add_bias<<<(d_output.size()+511)/512, 512>>>(d_output.size(), d_bias.ptr, d_output.ptr, d_output.size()/d_bias.size());

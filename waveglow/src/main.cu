@@ -4,6 +4,7 @@
 
 #include<WN.hpp>
 #include<upsample.hpp>
+#include<hparams.hpp>
 #include<logger.hpp>
 
 #include<conv.hpp>
@@ -59,7 +60,7 @@ void testWN(cudnnHandle_t& cudnn)
 
 		WN wavenet;
 		upsample upsample;
-		size_t max_length = 1500*32;
+		size_t max_length = hparams::max_length;
 		wavenet.set(cudnn, max_length);
 		upsample.set(cudnn, max_length);
 
@@ -70,17 +71,18 @@ void testWN(cudnnHandle_t& cudnn)
 		d_workspace.init(1000000,1);
 		input_mel.init(input_m.shape);
 		audio.init(input_m.shape[2]*256,1);
+		upsampled_mel.init(640, input_m.shape[2]*32);
+
 		
 		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 	
-		upsampled_mel.init(640, input_m.shape[2]*32);
-
-
-		auto start = chrono::steady_clock::now();
+		auto start = chrono::steady_clock::now(), up_end = start;
 		int test_count=1;
 		while(test_count>0)
 		{
 			upsample(cudnn, input_mel, upsampled_mel, d_workspace);
+			up_end = chrono::steady_clock::now();
+
 			wavenet(cudnn, upsampled_mel, audio, d_workspace);
 			test_count--;
 		}
@@ -94,9 +96,10 @@ void testWN(cudnnHandle_t& cudnn)
 			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
 			<< " ms" << std::endl;
 
-		// std::cout << "Elapsed time in milliseconds : " 
-		// 	<< chrono::duration_cast<chrono::milliseconds>(end2 - start).count()
-		// 	<< " ms" << std::endl;
+		std::cout << "Time elapsed time in upsampler in milliseconds : " 
+			<< chrono::duration_cast<chrono::milliseconds>(up_end - start).count()
+			<< " ms" << std::endl;
+
 		}
 
 

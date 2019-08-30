@@ -103,11 +103,13 @@ __global__ void concat_z(size_t sz, float_t* src, float_t* dest, float_t* z, siz
 void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 {
     input_len = max_audio_len; 
-    n_channels = 256;
-    n_flows = 12;
-    n_layers = 8;
-    n_groups = 8;
-    n_rem_channels = 4;
+    
+    n_channels = hparams::n_channels;
+    n_flows = hparams::n_flows;
+    n_layers = hparams::n_layers;
+    n_groups = hparams::n_groups;
+    n_rem_channels = hparams::n_rem_channels;
+
     n_threads = 512;
 
     for (int k=0; k<n_flows; k++)
@@ -204,7 +206,7 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
     cudnnCreateTensorDescriptor(&input_desc);
     cudnnCreateTensorDescriptor(&out_desc);
 
-    std::cout<<"input length is "<<input_len<<"\n";
+    // std::cout<<"input length is "<<input_len<<"\n";
     {
         temp_input.init(n_groups/2, input_len);
         f1.init(n_channels, input_len);
@@ -228,8 +230,9 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output, gpu_float_array& d_workspace)
 {   
 
-    size_t input_len = mel_input.shape[1], aud_channels=4;
-    std::cout<<"the value is"<<input_len<<"\t"<<input_t.shape[2]<<"\t"<<mel_input.shape[1]<<"\n";
+    size_t input_len = mel_input.shape[1];
+    size_t aud_channels = n_rem_channels;
+    // std::cout<<"the value is"<<input_len<<"\t"<<input_t.shape[2]<<"\t"<<mel_input.shape[1]<<"\n";
 
     input_t.reshape(aud_channels, input_len);
     curandGenerateNormal(rng, input_t.ptr, input_t.size(), 0.0f, 0.6);
