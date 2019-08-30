@@ -28,7 +28,8 @@ namespace livai
 
 				cudnnTensorDescriptor_t input_desc, out_desc;
 				
-				size_t input_len, dil_t, num_values, threads, num_blocks;
+				size_t input_len, dil_t, num_values, n_threads, num_blocks;
+				size_t n_channels, n_flows, n_layers, n_groups, n_rem_channels;
 				gpu_float_array f1,f2,f3,f4,temp, temp_input, f6, d_workspace, z, input_t;
 
 			public:

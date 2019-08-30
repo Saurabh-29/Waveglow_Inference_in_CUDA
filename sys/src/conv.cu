@@ -160,7 +160,9 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
             // std::cout<<d_output.size()<<"\t"<<d_bias.size()<<"\n";
             if(has_bias>0)
             {
-                add_bias<<<(d_output.size()+511)/512, 512>>>(d_output.size(), d_bias.ptr, d_output.ptr, d_output.size()/d_bias.size());
+                // add_bias<<<(d_output.size()+511)/512, 512>>>(d_output.size(), d_bias.ptr, d_output.ptr, d_output.size()/d_bias.size());
+                checkCUDNN(cudnnAddTensor(cudnn, &alpha, bias_descriptor,
+                                              d_bias.ptr, &alpha, output_desc, d_output.ptr));
             }
 
 

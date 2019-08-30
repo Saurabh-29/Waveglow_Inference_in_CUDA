@@ -54,40 +54,44 @@ void testWN(cudnnHandle_t& cudnn)
 	{
 		using namespace livai::tts::waveglow;
 		using namespace std;
-		using namespace livai::tts::common ;
+		using namespace livai::tts::common;
 
 		WN wavenet;
 		upsample upsample;
 
 		std::cout<<"test waveglow code is running"<<"\n";
 		// auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_audio.npy");
-		auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/audio_11.npy");
+		// auto input_t = cnpy::npy_load("/shared1/saurabh.m/waveglow/audio_11.npy");
 		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
 
 	
 
-		gpu_float_array input_tensor, input_mel, audio, d_workspace, z4, z8, upsampled_mel;
+		gpu_float_array input_mel, audio, d_workspace, upsampled_mel;
 
-		input_tensor.init(1, 8, input_t.shape[2]);
 		input_mel.init(input_m.shape);
 		audio.init(input_m.shape[2]*256,1);
 		
-		input_tensor.reshape(1,4,input_t.shape[2]);
 
-		cudaMemcpy(input_tensor.ptr, input_t.data<float_t>(), input_tensor.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 	
 
 		upsampled_mel.init(640, input_m.shape[2]*32);
 
-		wavenet.set(cudnn, 2*input_tensor.shape[2]);
+		wavenet.set(cudnn, 2*input_m.shape[2]*32);
 		upsample.set(cudnn, input_mel.shape[2]);
 
 		d_workspace.init(2170112/2,1);
 
 		auto start = chrono::steady_clock::now();
-		upsample(cudnn, input_mel, upsampled_mel);
-		wavenet(cudnn, upsampled_mel, audio);
+
+		int test_count=1;
+		while(test_count>0)
+		{
+			upsample(cudnn, input_mel, upsampled_mel);
+			wavenet(cudnn, upsampled_mel, audio);
+			test_count--;
+		}
+		
 		
 		cudaDeviceSynchronize();
 		auto end = chrono::steady_clock::now();
@@ -97,6 +101,10 @@ void testWN(cudnnHandle_t& cudnn)
 		std::cout << "Elapsed time in milliseconds : " 
 			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
 			<< " ms" << std::endl;
+
+		// std::cout << "Elapsed time in milliseconds : " 
+		// 	<< chrono::duration_cast<chrono::milliseconds>(end2 - start).count()
+		// 	<< " ms" << std::endl;
 		}
 
 

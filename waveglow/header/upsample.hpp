@@ -21,6 +21,7 @@ namespace livai
 				sys::conv up_conv;
 						
 				cudnnTensorDescriptor_t input_desc, out_desc;
+				size_t mel_dim, n_threads, stride, kernel_len;
 				
 				gpu_float_array f1,f2, d_workspace;
 
