@@ -67,6 +67,23 @@ void upsample::set(cudnnHandle_t& cudnn, size_t audio_len)
     size_t output_rows = audio_len*stride+kernel_len-stride;
     up_conv.init(cudnn, kernel_weight, bias_weight, 1, input_rows, in_channel_size,
         1, output_rows, out_channel_size, 1, kernel_width);
+
+    {
+        std::string kernel_fname = hparams::up_conv_weight_orig;
+        std::string bias_fname = hparams::up_conv_bias;   
+        auto kernel_weight = cnpy::npy_load(kernel_fname); 
+        auto bias_weight = cnpy::npy_load(bias_fname);
+
+        size_t kernel_width = kernel_weight.shape[2];
+        // kernel_len = kernel_width;
+        size_t in_channel_size = kernel_weight.shape[1];
+        size_t out_channel_size = kernel_weight.shape[0];
+
+        size_t input_rows = audio_len;
+        size_t output_rows = audio_len*stride+kernel_len-stride;
+        trans_conv.init(cudnn, kernel_weight, bias_weight, 1, input_rows, in_channel_size,
+            1, output_rows, out_channel_size, 1, kernel_width);
+    }
     
 
     cudnnCreateTensorDescriptor(&input_desc);
@@ -103,8 +120,13 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel,  gp
     size_t num_values = input_mel.size();
     fractional_stride_nchw<<<(num_values+n_threads-1)/n_threads, n_threads>>>(num_values, stride, input_mel.ptr, f1.ptr, input_len, input_rows);
 
-    up_conv(cudnn, f1, f2, input_desc, out_desc, d_workspace);
+    // up_conv(cudnn, f1, f2, input_desc, out_desc, d_workspace, 0);
     // log_d("added upsampling", f2.log("upsampled_mel.npy"));
+
+    cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mel_dim, 1, input_len);
+    cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mel_dim, 1, output_rows);
+    trans_conv(cudnn, input_mel, f2, input_desc, out_desc, d_workspace);
+    // log_d("added upsampling using transpose", f2.log("upsampled_mel_trans.npy"));
 
     size_t upsampled_dim = input_len*stride;
     f1.reshape(mel_dim, upsampled_dim);

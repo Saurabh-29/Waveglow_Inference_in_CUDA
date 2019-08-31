@@ -5,6 +5,7 @@
 
 #include<memory> 
 #include<conv.hpp>
+#include<conv_grad.hpp>
 #include<hparams.hpp>
 #include<dense.hpp>
 
@@ -19,6 +20,7 @@ namespace livai
 			{
 			private:
 				sys::conv up_conv;
+				sys::conv_grad trans_conv;
 						
 				cudnnTensorDescriptor_t input_desc, out_desc;
 				size_t mel_dim, n_threads, stride, kernel_len;

@@ -1,4 +1,4 @@
-#include<conv.hpp>
+#include<conv_grad.hpp>
 #include <data_types.hpp>
 #include <cudnn.h>
 #include <logger.hpp>
@@ -7,18 +7,18 @@
 
 using namespace livai::tts::sys;
 
-__global__ void add_bias(size_t sz, float_t* src, float_t* dest, size_t audio_len)
-{
-    size_t index = blockIdx.x*blockDim.x + threadIdx.x;
-    // size_t src_index = index%bias_dim;
-    if(index < sz)
-    {
-        dest[index] += src[index/audio_len];
-        // printf(dest[index], src[index/audio_len]);
-    }
-}
+// __global__ void add_bias(size_t sz, float_t* src, float_t* dest, size_t audio_len)
+// {
+//     size_t index = blockIdx.x*blockDim.x + threadIdx.x;
+//     // size_t src_index = index%bias_dim;
+//     if(index < sz)
+//     {
+//         dest[index] += src[index/audio_len];
+//         // printf(dest[index], src[index/audio_len]);
+//     }
+// }
 
-void conv::initModelWeight(const cnpy::NpyArray& h_kernel, const cnpy::NpyArray& h_bias)
+void conv_grad::initModelWeight(const cnpy::NpyArray& h_kernel, const cnpy::NpyArray& h_bias)
     {
         // load kernel
             d_kernel.init(h_kernel.shape);
@@ -31,7 +31,7 @@ void conv::initModelWeight(const cnpy::NpyArray& h_kernel, const cnpy::NpyArray&
 
 
 
-void conv::initConvTensors(cudnnHandle_t& cudnn, size_t in_rows, size_t in_cols, size_t in_channels, 
+void conv_grad::initConvTensors(cudnnHandle_t& cudnn, size_t in_rows, size_t in_cols, size_t in_channels, 
                             size_t out_rows, size_t out_cols, size_t out_channels, 
                             size_t kernel_height, size_t kernel_width, 
                             size_t dilation_height, size_t dilation_width,
@@ -66,12 +66,12 @@ void conv::initConvTensors(cudnnHandle_t& cudnn, size_t in_rows, size_t in_cols,
 
             checkCUDNN(cudnnCreateConvolutionDescriptor(&convolution_descriptor));
             checkCUDNN(cudnnSetConvolution2dDescriptor(convolution_descriptor,
-                                                       /*pad_height=*/pad_height,
-                                                       /*pad_width=*/pad_width,
+                                                       /*pad_height=*/0,
+                                                       /*pad_width=*/0,
                                                        /*vertical_stride=*/1,
-                                                       /*horizontal_stride=*/1,
-                                                       /*dilation_height=*/dilation_height,
-                                                       /*dilation_width=*/dilation_width,
+                                                       /*horizontal_stride=*/256,
+                                                       /*dilation_height=*/1,
+                                                       /*dilation_width=*/1,
                                                        /*mode=*/CUDNN_CROSS_CORRELATION,
                                                        /*computeType=*/CUDNN_DATA_FLOAT));
 
@@ -83,7 +83,7 @@ void conv::initConvTensors(cudnnHandle_t& cudnn, size_t in_rows, size_t in_cols,
 
 
 
-void conv::init(cudnnHandle_t& cudnn, const cnpy::NpyArray& h_kernel, const cnpy::NpyArray& h_bias, 
+void conv_grad::init(cudnnHandle_t& cudnn, const cnpy::NpyArray& h_kernel, const cnpy::NpyArray& h_bias, 
                 size_t in_rows, size_t in_cols, size_t in_channels, 
                 size_t out_rows, size_t out_cols, size_t out_channels, 
                 size_t kernel_height, size_t kernel_width,
@@ -107,25 +107,26 @@ void conv::init(cudnnHandle_t& cudnn, const cnpy::NpyArray& h_kernel, const cnpy
 
 
 
-void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gpu_float_array& d_output, 
+void conv_grad::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gpu_float_array& d_output, 
                         cudnnTensorDescriptor_t input_desc, cudnnTensorDescriptor_t output_desc,  gpu_float_array& d_workspace_1, size_t has_bias)
     {
 
             const float alpha = 1, beta = 0;
 
-            checkCUDNN(cudnnGetConvolutionForwardAlgorithm(cudnn,
-                                                    input_desc,
+           cudnnGetConvolutionBackwardDataAlgorithm(cudnn,
                                                     kernel_descriptor,
+                                                    input_desc,
                                                     convolution_descriptor,
                                                     output_desc,
-                                                    CUDNN_CONVOLUTION_FWD_PREFER_FASTEST,
+                                                    CUDNN_CONVOLUTION_BWD_DATA_NO_WORKSPACE,
                                                     /*memoryLimitInBytes=*/0,
-                                                    &convolution_algorithm));
+                                                    &convolution_algorithm);
+
             // cudnnSetConvolutionMathType(convolution_descriptor, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION);
 
-            checkCUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn,
-                                                               input_desc,
-                                                               kernel_descriptor,
+            checkCUDNN(cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn,
+                                                              kernel_descriptor,
+                                                               input_desc,                                                               
                                                                convolution_descriptor,
                                                                output_desc,
                                                                convolution_algorithm,
@@ -136,12 +137,12 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
 
             // log_d("Workspace size",workspace_bytes);
 
-            checkCUDNN(cudnnConvolutionForward(cudnn,
+            checkCUDNN(cudnnConvolutionBackwardData(cudnn,
                                                &alpha,
-                                               input_desc,
-                                               d_input.ptr,
                                                kernel_descriptor,
                                                d_kernel.ptr,
+                                               input_desc,
+                                               d_input.ptr,                                               
                                                convolution_descriptor,
                                                convolution_algorithm, 
                                                (void*)d_workspace_1.ptr,
@@ -162,7 +163,7 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
     }
 
 
-conv::~conv()
+conv_grad::~conv_grad()
     {
 
             // cudnnDestroyTensorDescriptor(input_descriptor);

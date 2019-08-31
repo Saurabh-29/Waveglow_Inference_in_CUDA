@@ -11,7 +11,7 @@ namespace hparams
 
     static const string base_folder = "/shared1/saurabh.m/waveglow/weights_new/";
 
-    static const size_t max_length = 1500*32;
+    static const size_t max_length = 1000*32;
 
 	static const size_t mel_dim = 80;
 	static const size_t stride = 256;
@@ -23,6 +23,7 @@ namespace hparams
 	static const size_t n_rem_channels = 4;
 
     static const string up_conv_weight = base_folder + "weight_flip.npy";
+    static const string up_conv_weight_orig = base_folder + "weight.npy";
 	static const string up_conv_bias = base_folder + "bias.npy";
 
 	static const string start_conv_weight = base_folder + "{}_start_weight.npy";
