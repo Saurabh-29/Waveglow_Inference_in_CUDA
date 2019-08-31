@@ -26,7 +26,7 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
 # Inference and Results
 > Currently the code takes around 500ms to generate 10secs of speech
 
-# Resources and refrences
+# Resources and References
 
  - [Waveglow paper](https://arxiv.org/pdf/1811.00002.pdf)
  - [Waveglow open-source code](https://github.com/NVIDIA/waveglow)
