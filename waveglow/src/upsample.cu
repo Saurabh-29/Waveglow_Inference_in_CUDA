@@ -118,7 +118,7 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel,  gp
     cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, mel_dim, 1, output_rows);
     
     size_t num_values = input_mel.size();
-    fractional_stride_nchw<<<(num_values+n_threads-1)/n_threads, n_threads>>>(num_values, stride, input_mel.ptr, f1.ptr, input_len, input_rows);
+    // fractional_stride_nchw<<<(num_values+n_threads-1)/n_threads, n_threads>>>(num_values, stride, input_mel.ptr, f1.ptr, input_len, input_rows);
 
     // up_conv(cudnn, f1, f2, input_desc, out_desc, d_workspace, 0);
     // log_d("added upsampling", f2.log("upsampled_mel.npy"));
