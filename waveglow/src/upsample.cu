@@ -68,22 +68,25 @@ Arguments:
     stride = hparams::stride; 
     n_threads = 1024;
 
-    std::string kernel_fname = hparams::up_conv_weight;
-    std::string bias_fname = hparams::up_conv_bias;   
-    auto kernel_weight = cnpy::npy_load(kernel_fname); 
-    auto bias_weight = cnpy::npy_load(bias_fname);
+    /* When posing conv as transpose Conv2d, we can use this conv layer
+    {
+        std::string kernel_fname = hparams::up_conv_weight;
+        std::string bias_fname = hparams::up_conv_bias;   
+        auto kernel_weight = cnpy::npy_load(kernel_fname); 
+        auto bias_weight = cnpy::npy_load(bias_fname);
 
-    size_t kernel_width = kernel_weight.shape[2];
-    kernel_len = kernel_width;
-    size_t in_channel_size = kernel_weight.shape[1];
-    size_t out_channel_size = kernel_weight.shape[0];
+        size_t kernel_width = kernel_weight.shape[2];
+        kernel_len = kernel_width;
+        size_t in_channel_size = kernel_weight.shape[1];
+        size_t out_channel_size = kernel_weight.shape[0];
 
-    size_t input_rows = max_mel_length+(max_mel_length-1)*(stride-1);
-    size_t output_rows = max_mel_length*stride+kernel_len-stride;
-    up_conv.init(cudnn, kernel_weight, bias_weight, 1, input_rows, in_channel_size,
-        1, output_rows, out_channel_size, 1, kernel_width);
+        size_t input_rows = max_mel_length+(max_mel_length-1)*(stride-1);
+        size_t output_rows = max_mel_length*stride+kernel_len-stride;
+        up_conv.init(cudnn, kernel_weight, bias_weight, 1, input_rows, in_channel_size,
+            1, output_rows, out_channel_size, 1, kernel_width);
 
-
+    }
+    (/)
     /* transpose conv1d initialization*/
     {
         std::string kernel_fname = hparams::up_conv_weight_orig;
@@ -92,7 +95,7 @@ Arguments:
         auto bias_weight = cnpy::npy_load(bias_fname);
 
         size_t kernel_width = kernel_weight.shape[2];
-        // kernel_len = kernel_width;
+        kernel_len = kernel_width;
         size_t in_channel_size = kernel_weight.shape[1];
         size_t out_channel_size = kernel_weight.shape[0];
 
