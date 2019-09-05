@@ -18,55 +18,24 @@
 using namespace livai::tts;
 using namespace livai::tts::common;
 
-void testupsampler(cudnnHandle_t& cudnn)
-	{
-		using namespace livai::tts::waveglow;
-		using namespace std;
-		using namespace livai::tts::common ;
-
-		upsample upsample;
-
-		std::cout<<"test upsample code is running"<<"\n";
-		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
-
-		gpu_float_array input_mel, upsampled_mel, d_workspace;
-
-		input_mel.init(input_m.shape);
-		upsampled_mel.init(640, input_m.shape[2]*32);
-		d_workspace.init(1000000,1);
-
-		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
-		upsample.set(cudnn, input_mel.shape[2]);
-
-		auto start = chrono::steady_clock::now();
-
-		// upsample(cudnn, input_mel, upsampled_mel);
-		
-		cudaDeviceSynchronize();
-		auto end = chrono::steady_clock::now();
-
-		log_d("final mel", upsampled_mel.log("gen_upsamplee_mel.npy"));
-
-		std::cout << "Elapsed time in milliseconds : " 
-			<< chrono::duration_cast<chrono::milliseconds>(end - start).count()
-			<< " ms" << std::endl;
-		}
-
-void testWN(cudnnHandle_t& cudnn)
+void testWaveglow(cudnnHandle_t& cudnn)
 	{
 		using namespace livai::tts::waveglow;
 		using namespace std;
 		using namespace livai::tts::common;
 
-		WN wavenet;
+		//make and set objects of WN ans upsample//
+		WN waveglow;
 		upsample upsample;
 		size_t max_length = hparams::max_length;
-		wavenet.set(cudnn, max_length);
+		waveglow.set(cudnn, max_length);
 		upsample.set(cudnn, max_length);
 
-		std::cout<<"test waveglow code is running"<<"\n";
+		/* input-mel generated from either text-2-mel models such as tacotron, deepvoice or 
+		        from ground truth fft in format [channels, length]*/
 		auto input_m = cnpy::npy_load("/shared1/saurabh.m/waveglow/input_mel.npy");
-
+		
+		// initialize float_arrays of required dimension
 		gpu_float_array input_mel, audio, d_workspace, upsampled_mel;
 		d_workspace.init(100000000,1);
 		input_mel.init(input_m.shape);
@@ -77,15 +46,16 @@ void testWN(cudnnHandle_t& cudnn)
 		cudaMemcpy(input_mel.ptr, input_m.data<float_t>(), input_mel.size()*sizeof(float_t), cudaMemcpyHostToDevice);
 		
 		cudaDeviceSynchronize();
-		auto start = chrono::steady_clock::now(), up_end = start;
+		auto start = chrono::steady_clock::now(), upsampler_end = start;
+
 		int test_count=1;
 		while(test_count>0)
 		{
 			upsample(cudnn, input_mel, upsampled_mel, d_workspace);
 			cudaDeviceSynchronize();
-			up_end = chrono::steady_clock::now();
+			upsampler_end = chrono::steady_clock::now();
 
-			wavenet(cudnn, upsampled_mel, audio, d_workspace);
+			waveglow(cudnn, upsampled_mel, audio, d_workspace);
 			test_count--;
 		}
 
@@ -99,7 +69,7 @@ void testWN(cudnnHandle_t& cudnn)
 			<< " ms" << std::endl;
 
 		std::cout << "Time elapsed time in upsampler in milliseconds : " 
-			<< chrono::duration_cast<chrono::milliseconds>(up_end - start).count()
+			<< chrono::duration_cast<chrono::milliseconds>(upsampler_end - start).count()
 			<< " ms" << std::endl;
 
 		}
@@ -107,12 +77,15 @@ void testWN(cudnnHandle_t& cudnn)
 
 int main()
 {
-// create a cuda handle
+	
+	// create a cuda handle
+	size_t device_id = 3;
 	cudnnHandle_t cudnn;
-	(cudaSetDevice(3));
+
+	cudaSetDevice(device_id);
+
 	checkCUDNN(cudnnCreate(&cudnn));
-	// testupsampler(cudnn);
-	testWN(cudnn);
+	testWaveglow(cudnn);
 	cudnnDestroy(cudnn);
 }
 

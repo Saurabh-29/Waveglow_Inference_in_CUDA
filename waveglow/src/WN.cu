@@ -15,6 +15,7 @@ __forceinline__ __device__ float sigmoidf(float in) {
    return 1.f / (1.f + expf(-in));  
 }
 
+/* kernel to apply gated activation function on input */
 
 __global__ void fused_add_tanh_sigm_mul(size_t sz, float_t* f2, float* f3, float_t* dest)
 {
@@ -26,6 +27,7 @@ __global__ void fused_add_tanh_sigm_mul(size_t sz, float_t* f2, float* f3, float
         }
 }
 
+/* kernel to apply affine transformation on one half of audio */
 __global__ void affine_transform(size_t sz, float_t* audio, float_t* end_out, size_t stride)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -36,7 +38,7 @@ __global__ void affine_transform(size_t sz, float_t* audio, float_t* end_out, si
         }
 }
 
-
+/* kernel to add skip and res results to global skip and res */
 __global__ void skip_res_add(size_t sz, float_t* f5, float* f1, float_t* f6, size_t stride)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -48,6 +50,7 @@ __global__ void skip_res_add(size_t sz, float_t* f5, float* f1, float_t* f6, siz
         }
 }
 
+/* kernel to add skip value to global skip in last layer */
 __global__ void skip_add(size_t sz, float_t* f1, float* f6)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -58,7 +61,7 @@ __global__ void skip_add(size_t sz, float_t* f1, float* f6)
         }
 }
 
-
+/* kernel to copy src value to dest */
 __global__ void copy_kernel(size_t sz, float_t* src, float_t* dest)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -69,7 +72,7 @@ __global__ void copy_kernel(size_t sz, float_t* src, float_t* dest)
     }
 }
 
-
+/* kernel to compute transpose of src and store in dest */
 __global__ void transpose_kernel(size_t sz, float_t* src, float_t* dest, size_t ld_src, size_t ld_dest)
 {
     size_t index = blockIdx.x*blockDim.x + threadIdx.x;
@@ -81,6 +84,8 @@ __global__ void transpose_kernel(size_t sz, float_t* src, float_t* dest, size_t 
         dest[dest_index] = src[index];
     }
 }
+
+/* kernel to concatenate z in audio after every 4 rounds of flow */
 
 __global__ void concat_z(size_t sz, float_t* src, float_t* dest, float_t* z, size_t stride)
 {
@@ -101,6 +106,7 @@ __global__ void concat_z(size_t sz, float_t* src, float_t* dest, float_t* z, siz
 
 
 void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
+/* initialize the weights and biases of the Convolution layers */
 {
     input_len = max_audio_len; 
     
@@ -227,7 +233,25 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 }
 
 
-void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float_array& d_output, gpu_float_array& d_workspace)
+void WN::operator() (cudnnHandle_t& cudnn,  gpu_float_array& mel_input, gpu_float_array& d_output, gpu_float_array& d_workspace)
+/*
+    This function transforms noise to audio through series of normalising flows 
+    
+    Arguments:
+    --------------
+    cudnn: A cudnnHandle 
+        A cudnn handle used by various cudnn layers
+
+    mel_input: a float array of size [640,x]
+        Upsampled mel generated from upsamper layer, used for conditioning waveglow
+
+    d_output: A float array of size [8*x,1]
+        Pointer to store values of audiov (output)
+
+    d_workspace: A float array of large size ( greater than required by any convolution)
+        A chunk of memory to be used by convolution workspace, alternatively we can set size to a
+         given maximum by selecting such algorithms in conv
+*/
 {   
 
     size_t input_len = mel_input.shape[1];
@@ -285,20 +309,14 @@ void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float
                     cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                     cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 2*n_channels, 1, input_len);
                     res_skip_conv[k][j](cudnn, f4, f3, input_desc, out_desc, d_workspace);
-                    // log_d("res_skip_acts ", f3.log("res_skip_acts" + std::to_string(j)+ ".npy"));
-
                     skip_res_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f3.ptr, f1.ptr, f6.ptr, 256*input_len);
-                    // log_d("outputs ", f6.log("outputs" + std::to_string(j)+ ".npy"));
                 }
                 else
                 {
                     cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                     cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                     res_skip_conv[k][j](cudnn, f4, f1, input_desc, out_desc, d_workspace);
-                    // log_d("res_skip_acts ", f1.log("res_skip_acts" + std::to_string(j)+ ".npy"));
-
                     skip_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f1.ptr, f6.ptr);
-                    // log_d("outputs ", f6.log("outputs" + std::to_string(j)+ ".npy"));
                 }
 
         }
@@ -306,10 +324,8 @@ void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float
         cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
         cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
         end_conv[k](cudnn, f6, temp, input_desc, out_desc, d_workspace);
-        // log_d(" end conv outputs ", temp.log("end_out.npy"));
 
         affine_transform <<< (temp.size()/2+n_threads-1)/n_threads, n_threads >>>(temp.size()/2, input_t.ptr, temp.ptr, temp.size()/2);
-        // log_d("audio transformed", input_t.log("audio_tr.npy"));
 
         cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
         cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
@@ -330,9 +346,6 @@ void WN::operator() (cudnnHandle_t& cudnn, gpu_float_array& mel_input, gpu_float
                 temp_input.reshape(aud_channels/2, input_len);
                 temp.reshape(aud_channels, input_len);
             }
-     
-        // log_d("audio transformed inv", input_t.log("audio_after_step" + std::to_string(k)+ ".npy"));
-
     }
 
     transpose_kernel<<<(d_output.size()+n_threads-1)/n_threads, n_threads>>>(d_output.size(), input_t.ptr, d_output.ptr, input_t.shape[1], input_t.shape[0]);

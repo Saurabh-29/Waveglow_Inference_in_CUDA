@@ -14,13 +14,13 @@ namespace hparams
     static const size_t max_length = 1000*32;
 
 	static const size_t mel_dim = 80;
-	static const size_t stride = 256;
+	static const size_t stride = 256; //for upsampler
 
-	static const size_t n_channels = 256;
-	static const size_t n_flows = 12;
-	static const size_t n_layers = 8;
-	static const size_t n_groups = 8;
-	static const size_t n_rem_channels = 4;
+	static const size_t n_channels = 256; 
+	static const size_t n_flows = 12;	//number of flows
+	static const size_t n_layers = 8;	//number of layers in a flow
+	static const size_t n_groups = 8;	//groups in which audio is divided
+	static const size_t n_rem_channels = 4;	//n_groups to start audio
 
     static const string up_conv_weight = base_folder + "weight_flip.npy";
     static const string up_conv_weight_orig = base_folder + "weight.npy";
