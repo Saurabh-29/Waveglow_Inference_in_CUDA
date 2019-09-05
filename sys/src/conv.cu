@@ -113,6 +113,8 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
 
             const float alpha = 1, beta = 0;
 
+            cudnnSetConvolutionMathType(convolution_descriptor, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION);
+
             checkCUDNN(cudnnGetConvolutionForwardAlgorithm(cudnn,
                                                     input_desc,
                                                     kernel_descriptor,
@@ -121,8 +123,8 @@ void conv::operator () (cudnnHandle_t& cudnn, const gpu_float_array& d_input, gp
                                                     CUDNN_CONVOLUTION_FWD_PREFER_FASTEST,
                                                     /*memoryLimitInBytes=*/0,
                                                     &convolution_algorithm));
-            // cudnnSetConvolutionMathType(convolution_descriptor, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION);
 
+            convolution_algorithm = CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM;
             checkCUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn,
                                                                input_desc,
                                                                kernel_descriptor,
