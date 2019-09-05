@@ -1,0 +1,5 @@
+waveglow/obj/
+sys/obj/
+common/obj/
+*.npy
+waveglow_tts
