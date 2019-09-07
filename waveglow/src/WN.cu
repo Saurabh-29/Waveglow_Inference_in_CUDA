@@ -17,13 +17,13 @@ __forceinline__ __device__ float sigmoidf(float in) {
 
 /* kernel to apply gated activation function on input */
 
-__global__ void fused_add_tanh_sigm_mul(size_t sz, float_t* f2, float* f3, float_t* dest)
+__global__ void fused_add_tanh_sigm_mul(size_t sz, float_t* in_conv_out, float* f3, float_t* dest)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
     
         if(index < sz)
         {
-            dest[index] = tanhf(f2[index]+f3[index])* sigmoidf(f2[index+sz] + f3[index+sz]);
+            dest[index] = tanhf(in_conv_out[index]+f3[index])* sigmoidf(in_conv_out[index+sz] + f3[index+sz]);
         }
 }
 
@@ -39,25 +39,25 @@ __global__ void affine_transform(size_t sz, float_t* audio, float_t* end_out, si
 }
 
 /* kernel to add skip and res results to global skip and res */
-__global__ void skip_res_add(size_t sz, float_t* f5, float* f1, float_t* f6, size_t stride)
+__global__ void skip_res_add(size_t sz, float_t* f5, float* f1, float_t* skip_out_sum, size_t stride)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
     
         if(index < sz)
         {
-            f6[index] += f5[index+stride];
+            skip_out_sum[index] += f5[index+stride];
             f1[index] += f5[index]; 
         }
 }
 
 /* kernel to add skip value to global skip in last layer */
-__global__ void skip_add(size_t sz, float_t* f1, float* f6)
+__global__ void skip_add(size_t sz, float_t* f1, float* skip_out_sum)
 {
     size_t index = blockDim.x * blockIdx.x + threadIdx.x;
     
         if(index < sz)
         {
-            f6[index] += f1[index];
+            skip_out_sum[index] += f1[index];
         }
 }
 
@@ -214,13 +214,13 @@ void WN::set(cudnnHandle_t& cudnn, size_t max_audio_len)
 
     // std::cout<<"input length is "<<input_len<<"\n";
     {
-        temp_input.init(n_groups/2, input_len);
+        audio_0.init(n_groups/2, input_len);
         f1.init(n_channels, input_len);
-        f2.init(2*n_channels, input_len);
+        in_conv_out.init(2*n_channels, input_len);
         f3.init(2*n_channels, input_len);
-        f4.init(n_channels, input_len);
-        f6.init(n_channels, input_len);
-        temp.init(n_groups, input_len);
+        gated_activation_output.init(n_channels, input_len);
+        skip_out_sum.init(n_channels, input_len);
+        audio.init(n_groups, input_len);
         z.init(2, 2*input_len);
         input_t.init(n_groups,input_len);
     }
@@ -262,17 +262,17 @@ void WN::operator() (cudnnHandle_t& cudnn,  gpu_float_array& mel_input, gpu_floa
     curandGenerateNormal(rng, input_t.ptr, input_t.size(), 0.0f, 0.6);
 
     f1.reshape(n_channels, input_len);
-    f2.reshape(2*n_channels, input_len);
+    in_conv_out.reshape(2*n_channels, input_len);
     f3.reshape(2*n_channels, input_len);
-    f4.reshape(n_channels, input_len);
-    f6.reshape(n_channels, input_len);
-    temp_input.reshape(aud_channels/2, input_len);
-    temp.reshape(aud_channels, input_len);
+    gated_activation_output.reshape(n_channels, input_len);
+    skip_out_sum.reshape(n_channels, input_len);
+    audio_0.reshape(aud_channels/2, input_len);
+    audio.reshape(aud_channels, input_len);
 
 
     for(int k=n_flows-1; k>-1; k--)
     {
-        copy_kernel <<< (temp_input.size()+n_threads-1)/n_threads, n_threads >>>(temp_input.size(), input_t.ptr, temp_input.ptr);
+        copy_kernel <<< (audio_0.size()+n_threads-1)/n_threads, n_threads >>>(audio_0.size(), input_t.ptr, audio_0.ptr);
 
         cudnnSetTensor4dDescriptor(input_desc,
                                           /*format=*/cudnnTensorFormat_t::CUDNN_TENSOR_NCHW,
@@ -283,55 +283,55 @@ void WN::operator() (cudnnHandle_t& cudnn,  gpu_float_array& mel_input, gpu_floa
                                           /*image_width=*/input_len);
         
         cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
-        start_conv[k](cudnn, temp_input, f1, input_desc, out_desc, d_workspace);
+        start_conv[k](cudnn, audio_0, f1, input_desc, out_desc, d_workspace);
 
-        f6.reset();
+        skip_out_sum.reset();
         for(int j=0; j<n_layers; j++)
         {
                 // log_d("input", f1.log("inp_in" + std::to_string(j)+ ".npy"));
 
                 cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                 cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 2*n_channels, 1, input_len);
-                in_conv[k][j](cudnn, f1, f2, input_desc, out_desc, d_workspace);
-                // log_d("in_out", f2.log("in_out" + std::to_string(j)+ ".npy"));
+                in_conv[k][j](cudnn, f1, in_conv_out, input_desc, out_desc, d_workspace);
+                // log_d("in_out", in_conv_out.log("in_out" + std::to_string(j)+ ".npy"));
 
                 cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 640, 1, input_len);
                 cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 2*n_channels, 1, input_len);
                 cond_conv[k][j](cudnn, mel_input, f3, input_desc, out_desc, d_workspace);
                 // log_d("cond_out", f3.log("cond_out" + std::to_string(j)+ ".npy"));
 
-                fused_add_tanh_sigm_mul <<< (f4.size()+n_threads-1)/n_threads, n_threads >>>(f4.size(), f2.ptr, f3.ptr, f4.ptr);
-                // log_d("acts ", f4.log("acts_out" + std::to_string(j)+ ".npy"));
+                fused_add_tanh_sigm_mul <<< (gated_activation_output.size()+n_threads-1)/n_threads, n_threads >>>(gated_activation_output.size(), in_conv_out.ptr, f3.ptr, gated_activation_output.ptr);
+                // log_d("acts ", gated_activation_output.log("acts_out" + std::to_string(j)+ ".npy"));
 
                 
                 if(j<7)
                 {
                     cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                     cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, 2*n_channels, 1, input_len);
-                    res_skip_conv[k][j](cudnn, f4, f3, input_desc, out_desc, d_workspace);
-                    skip_res_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f3.ptr, f1.ptr, f6.ptr, 256*input_len);
+                    res_skip_conv[k][j](cudnn, gated_activation_output, f3, input_desc, out_desc, d_workspace);
+                    skip_res_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f3.ptr, f1.ptr, skip_out_sum.ptr, 256*input_len);
                 }
                 else
                 {
                     cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
                     cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
-                    res_skip_conv[k][j](cudnn, f4, f1, input_desc, out_desc, d_workspace);
-                    skip_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f1.ptr, f6.ptr);
+                    res_skip_conv[k][j](cudnn, gated_activation_output, f1, input_desc, out_desc, d_workspace);
+                    skip_add <<< (f1.size()+n_threads-1)/n_threads, n_threads >>>(f1.size(), f1.ptr, skip_out_sum.ptr);
                 }
 
         }
 
         cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, n_channels, 1, input_len);
         cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
-        end_conv[k](cudnn, f6, temp, input_desc, out_desc, d_workspace);
+        end_conv[k](cudnn, skip_out_sum, audio, input_desc, out_desc, d_workspace);
 
-        affine_transform <<< (temp.size()/2+n_threads-1)/n_threads, n_threads >>>(temp.size()/2, input_t.ptr, temp.ptr, temp.size()/2);
+        affine_transform <<< (audio.size()/2+n_threads-1)/n_threads, n_threads >>>(audio.size()/2, input_t.ptr, audio.ptr, audio.size()/2);
 
         cudnnSetTensor4dDescriptor(input_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
         cudnnSetTensor4dDescriptor(out_desc, cudnnTensorFormat_t::CUDNN_TENSOR_NCHW, cudnnDataType_t::CUDNN_DATA_FLOAT, 1, aud_channels, 1, input_len);
-        inv_conv[k](cudnn, input_t, temp, input_desc, out_desc, d_workspace, 0);
+        inv_conv[k](cudnn, input_t, audio, input_desc, out_desc, d_workspace, 0);
 
-        copy_kernel<<<(input_t.size()+n_threads-1)/n_threads, n_threads>>>(input_t.size(), temp.ptr, input_t.ptr);
+        copy_kernel<<<(input_t.size()+n_threads-1)/n_threads, n_threads>>>(input_t.size(), audio.ptr, input_t.ptr);
 
 
         if((k%4==0) && (k>0))
@@ -341,10 +341,10 @@ void WN::operator() (cudnnHandle_t& cudnn,  gpu_float_array& mel_input, gpu_floa
                 input_t.reshape(aud_channels, input_len);
                 z.reshape(2, input_len);
                 curandGenerateNormal(rng, z.ptr, z.size(), 0.0f, 0.6);
-                concat_z<<<(input_t.size()+n_threads-1)/n_threads, n_threads>>>(input_t.size(), temp.ptr, input_t.ptr, z.ptr, 2*input_len);
+                concat_z<<<(input_t.size()+n_threads-1)/n_threads, n_threads>>>(input_t.size(), audio.ptr, input_t.ptr, z.ptr, 2*input_len);
                 
-                temp_input.reshape(aud_channels/2, input_len);
-                temp.reshape(aud_channels, input_len);
+                audio_0.reshape(aud_channels/2, input_len);
+                audio.reshape(aud_channels, input_len);
             }
     }
 

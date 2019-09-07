@@ -9,7 +9,7 @@ namespace hparams
 {
 	using namespace std;
 
-    static const string base_folder = "/shared1/saurabh.m/waveglow/weights_new/";
+    static const string base_folder = "/shared1/saurabh.m/waveglow/waveglow_weights/";
 
     static const size_t max_length = 1000*32;
 
@@ -22,7 +22,7 @@ namespace hparams
 	static const size_t n_groups = 8;	//groups in which audio is divided
 	static const size_t n_rem_channels = 4;	//n_groups to start audio
 
-    static const string up_conv_weight = base_folder + "weight_flip.npy";
+    static const string up_conv_weight = base_folder + "weight.npy";
     static const string up_conv_weight_orig = base_folder + "weight.npy";
 	static const string up_conv_bias = base_folder + "bias.npy";
 
