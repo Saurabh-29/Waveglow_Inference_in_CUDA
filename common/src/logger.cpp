@@ -15,5 +15,5 @@ void log<std::vector<size_t>>(const std::string& name, const std::vector<size_t>
         valString +=  std::to_string(obj[i]) + ",";
     }
 
-    out<<name<<" : "<<valString<<std::endl;
+    out<<name<<" : "<<valString<<"\n";
 }

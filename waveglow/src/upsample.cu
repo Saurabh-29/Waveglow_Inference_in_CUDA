@@ -138,7 +138,7 @@ void upsample::operator() (cudnnHandle_t& cudnn, gpu_float_array& input_mel, gpu
 
 {   
 
-    size_t input_len = input_mel.shape[2];
+    size_t input_len = input_mel.shape[1];
     size_t input_rows = input_len+(input_len-1)*(stride-1);
     size_t output_rows = input_len*stride+kernel_len-stride;
 

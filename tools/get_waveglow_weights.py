@@ -1,5 +1,5 @@
 """
-Code to save weights from checkpoint in the form, which can be directlt used by waveglow
+Code to save weights from checkpoint in the form, which can be directly used by waveglow
 """
 
 import os, sys
@@ -28,12 +28,10 @@ for child in waveglow.named_children():
 
 for i in range(12):
     name = "{}_conv_weight.npy".format(i)
-    
     a = np.load(folder+name)
     save_name = folder + "{}_conv_weight_inv.npy".format(i)
     # print(save_name, a.shape)
     a = np.expand_dims(inv(a.squeeze()),-1)
     print(name, a.shape)
-
     np.save(save_name, np.ascontiguousarray(a, dtype=np.float32))
 
