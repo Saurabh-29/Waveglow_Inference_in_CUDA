@@ -1,5 +1,10 @@
+
 # waveglow_cuda_inference
-> C++ Code to run  **optimized inference  in CUDA** of Waveglow, this implementation gives **25% speedup** over [Nvidia's Pytorch implementation](https://github.com/NVIDIA/waveglow)
+
+C++ Code to run  **optimized inference  in CUDA** of Waveglow, this implementation gives **25% speedup** over [Nvidia's Pytorch implementation](https://github.com/NVIDIA/waveglow) in full precision and **2.5-3x speedup** when using TensorCore
+>By default, this code will use GPU's TensorCore when running on NVIDIA's Volta GPU
+
+
 
 # Waveglow 
 Cuda C++ implementation of NVIDIA's Waveglow. 
@@ -14,19 +19,46 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
 
 
 # Repository Structure
+	cpp
+	├── common			(All common files; logger, utils, numpy reader)
+	│   └── header
+	│   ├── src
+	│        
+	├── sys		        (ML units i.e conv, dense, activation)
+	│   └── header
+	│   ├── src      	
+	│   
+	├── Waveglow		(WN, upsample, main)
+	│   └── header
+	│   ├── src  
+	├── tools
+		└── get_waveglow_weights.py
+		└── npy_2_aud.py	
 
-# Setup and Installation
-1. Set up this original [Waveglow repository](https://github.com/NVIDIA/waveglow) first
-2. Copy and run the *get_weights.py* file using [pretrained weights](https://drive.google.com/file/d/1WsibBTsuRg_SF2Z6L6NFRTT-NjEy1oTx/view)
-3. Git clone this repository
-4. Update the weights folder path in hparams.hpp (in waveglow/header/)
-5. Run the makefile 
-6. Run ./waveglow_tts object file
+
+# Getting Started
+1.  Git clone the repository
+2. Download [waveglow_weights](https://drive.google.com/file/d/170W_2vua0xAOZ5YpmwMufrUg9HYbpe5E/view?usp=sharing)
+3.  Download [mel_spectrograms](https://drive.google.com/open?id=1VD1OTQ5yBWUTGVrAdMzmz25As2XMGLRx)
+4.  Update waveglow_weights path in waveglow/header/hparams.hpp file 
+5.  Run this 
+```
+	make
+	ls -d path_2_mel_folder  >  filename.txt
+	./waveglow_tts filename.txt OutputDir
+	python tools/npy_2_aud.py OutputDir 
+  ```
+6.  Audio will be stored in OutputDir in .wav format
+# Traning
+You can also train your model using [this](https://github.com/NVIDIA/waveglow) and then use copy tools/get_waveglow_weights.py file in waveglow folder and run
+```
+ python get_waveglow_weights.py <checkpoint path>
+ ```
 
 # Inference and Results
-> Currently the code takes around 500ms to generate 10secs of speech
+> Currently the code takes around 250ms to generate 10secs of speech
 
-# Resources and References
+# Resources and refrences
 
  - [Waveglow paper](https://arxiv.org/pdf/1811.00002.pdf)
  - [Waveglow open-source code](https://github.com/NVIDIA/waveglow)
