@@ -44,10 +44,10 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
 4.  Update waveglow_weights path in waveglow/header/hparams.hpp file 
 5.  Run this 
 ```
-	make
-	ls -d path_2_mel_folder  >  filename.txt
-	./waveglow_tts filename.txt OutputDir
-	python tools/npy_2_aud.py OutputDir 
+    make
+    ls -d path_2_mel_folder  >  filename.txt
+    ./waveglow_tts filename.txt OutputDir
+    python tools/npy_2_aud.py OutputDir 
   ```
 6.  Audio will be stored in OutputDir in .wav format
 # Traning
