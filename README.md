@@ -1,7 +1,8 @@
 
-# waveglow_cuda_inference
 
-C++ Code to run  **optimized inference  in CUDA** of Waveglow, this implementation gives **25% speedup** over [Nvidia's Pytorch implementation](https://github.com/NVIDIA/waveglow) in full precision and **2.5-3x speedup** when using TensorCore
+# Waveglow_Inference_in_CUDA
+
+C++ Code to run  **optimized inference  in CUDA** of [Waveglow](https://arxiv.org/pdf/1811.00002.pdf), this implementation gives **25% speedup** over [Nvidia's Pytorch implementation](https://github.com/NVIDIA/waveglow) in full precision and **2.5-3x speedup** when using TensorCore
 >By default, this code will use GPU's TensorCore when running on NVIDIA's Volta GPU
 
 
@@ -15,7 +16,7 @@ The model architecure based on flows is described in this paper. [WaveGlow: a Fl
 
 WaveGlow is implemented using only a single network, trained using only a single cost function: maximizing the likelihood of the training data, which makes the training procedure simple and stable. 
 
-Paper claims that  *in full-precision* (32 bit float) waveglow produces speech at the 500kHz on V100 but typically it is about **300-325kHz** with pytorch's implementation and **400-420kHz** using our implementation.
+Paper claims that  *in full-precision* (32 bit float) waveglow produces speech at the 500kHz on V100 but typically it is about **300-325kHz** with pytorch's implementation and **400-420kHz** using our implementation in full precision and around **1000kHz** using TensorCore in full precision.
 
 
 # Repository Structure
