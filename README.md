@@ -10,7 +10,7 @@ C++ Code to run  **optimized inference  in CUDA** of [Waveglow](https://arxiv.or
 # Waveglow 
 Cuda C++ implementation of NVIDIA's Waveglow. 
 
-The model architecure based on flows is described in this paper. [WaveGlow: a Flow-based Generative Network for Speech Synthesis](https://arxiv.org/pdf/1811.00002.pdf). 
+The model architecture based on flows is described in this paper. [WaveGlow: a Flow-based Generative Network for Speech Synthesis](https://arxiv.org/pdf/1811.00002.pdf). 
 
 **_Waveglow, a flow-based network is capable of generating high quality speech from mel-spectograms_**. It combines insights from [Glow](https://arxiv.org/pdf/1807.03039.pdf) and  [Wavenet](https://arxiv.org/pdf/1609.03499.pdf)  in order to provide fast, efficient and high-quality audio synthesis, without the need for auto-regression. 
 
@@ -39,7 +39,7 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
 
 # Getting Started
 1.  Git clone the repository
-2. Download [waveglow_weights](https://drive.google.com/file/d/170W_2vua0xAOZ5YpmwMufrUg9HYbpe5E/view?usp=sharing)
+2.  Download [waveglow_weights](https://drive.google.com/file/d/170W_2vua0xAOZ5YpmwMufrUg9HYbpe5E/view?usp=sharing)
 3.  Download [mel_spectrograms](https://drive.google.com/open?id=1VD1OTQ5yBWUTGVrAdMzmz25As2XMGLRx)
 4.  Update waveglow_weights path in waveglow/header/hparams.hpp file 
 5.  Run this 
@@ -50,7 +50,7 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
     python tools/npy_2_aud.py OutputDir 
   ```
 6.  Audio will be stored in OutputDir in .wav format
-# Traning
+# Training
 You can also train your model using [this](https://github.com/NVIDIA/waveglow) and then use copy tools/get_waveglow_weights.py file in waveglow folder and run
 ```
  python get_waveglow_weights.py <checkpoint path>
@@ -59,7 +59,7 @@ You can also train your model using [this](https://github.com/NVIDIA/waveglow) a
 # Inference and Results
 > Currently the code takes around 250ms to generate 10secs of speech
 
-# Resources and refrences
+# Resources and references
 
  - [Waveglow paper](https://arxiv.org/pdf/1811.00002.pdf)
  - [Waveglow open-source code](https://github.com/NVIDIA/waveglow)
