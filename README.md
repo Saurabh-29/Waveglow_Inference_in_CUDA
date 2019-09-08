@@ -50,7 +50,7 @@ Paper claims that  *in full-precision* (32 bit float) waveglow produces speech a
     python tools/npy_2_aud.py OutputDir 
   ```
 6.  Audio will be stored in OutputDir in .wav format
-# Traning
+# Training
 You can also train your model using [this](https://github.com/NVIDIA/waveglow) and then use copy tools/get_waveglow_weights.py file in waveglow folder and run
 ```
  python get_waveglow_weights.py <checkpoint path>
