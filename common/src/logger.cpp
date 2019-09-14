@@ -1,8 +1,12 @@
 #include<logger.hpp>
 
-using namespace livai::tts::common;
+namespace livai {
 
-// change it to json file later.. 
+namespace tts {
+
+namespace common {
+
+// change it to json file later..
 std::ostream out(std::cout.rdbuf());
 
 template<>
@@ -16,4 +20,10 @@ void log<std::vector<size_t>>(const std::string& name, const std::vector<size_t>
     }
 
     out<<name<<" : "<<valString<<"\n";
+}
+
+}
+
+}
+
 }
